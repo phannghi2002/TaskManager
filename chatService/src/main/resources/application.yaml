@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: chatService
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/chat-service
+
+server:
+  port: 8084
+  servlet:
+    context-path: /chat
+
+app:
+  services:
+    project: http://localhost:8083/project
+
+#springdoc:
+#  swagger-ui:
+#    path: /swagger-ui.html

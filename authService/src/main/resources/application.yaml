@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: authService
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/task_manager
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers: localhost:9094
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: auth-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+
+server:
+  port: 8081
+  servlet:
+    context-path: /auth
+
+jwt:
+  signerKey: Os1s6shIo1Cit3j+LWqRjlEjCu8wytD3tQFeIR6Opv1Qec+uafoNtUu1zWyvhVue
+  valid-duration: 36000
+  refreshable-duration: 36000
+
+app:
+  default-manager:
+    email: manager@gmail.com
+    password: manager
+
+  services:
+    profile: http://localhost:8082/user

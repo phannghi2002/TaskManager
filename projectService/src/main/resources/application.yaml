@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: projectService
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/project
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+server:
+  port: 8083
+  servlet:
+    context-path: /project
+
+app:
+  services:
+    profile: http://localhost:8082/user
