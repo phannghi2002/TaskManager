@@ -7,6 +7,12 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
+
+  data:
+    redis:
+      host: localhost
+      port: 16379
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -34,8 +40,8 @@ server:
 
 jwt:
   signerKey: Os1s6shIo1Cit3j+LWqRjlEjCu8wytD3tQFeIR6Opv1Qec+uafoNtUu1zWyvhVue
-  valid-duration: 36000
-  refreshable-duration: 36000
+  valid-duration: 3600
+  refreshable-duration: 72000
 
 app:
   default-manager:

@@ -12,7 +12,8 @@ public enum ErrorCode {
     UNAUTHENTICATED(1004, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1005, "You do not have permission", HttpStatus.FORBIDDEN),
     WRONG_PASSWORD(1006, " Password not correct", HttpStatus.BAD_REQUEST),
-    ROLE_NOT_FOUND(1007, "Role not founded", HttpStatus.NOT_FOUND)
+    ROLE_NOT_FOUND(1007, "Role not founded", HttpStatus.NOT_FOUND),
+    REFRESH_TOKEN_INVALID(1007, "Refresh token invalid or expired", HttpStatus.UNAUTHORIZED)
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

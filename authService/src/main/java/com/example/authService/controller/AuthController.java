@@ -2,9 +2,11 @@ package com.example.authService.controller;
 
 import com.example.authService.dto.request.AuthenticationRequest;
 import com.example.authService.dto.request.IntrospectRequest;
+import com.example.authService.dto.request.RefreshTokenRequest;
 import com.example.authService.dto.response.ApiResponse;
 import com.example.authService.dto.response.AuthenticationResponse;
 import com.example.authService.dto.response.IntrospectResponse;
+import com.example.authService.entity.RefreshToken;
 import com.example.authService.service.AuthenticationService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -34,4 +36,12 @@ public class AuthController {
         IntrospectResponse result = authenticationService.introspect(request);
         return ApiResponse.<IntrospectResponse>builder().result(result).build();
     }
+
+    @PostMapping("/refresh-token")
+    ApiResponse<AuthenticationResponse> refresh(@RequestBody RefreshTokenRequest request) throws ParseException {
+        AuthenticationResponse result = authenticationService.refreshToken(request);
+        return ApiResponse.<AuthenticationResponse>builder().result(result).build();
+    }
+
+
 }
