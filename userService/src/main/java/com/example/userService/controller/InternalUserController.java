@@ -1,13 +1,18 @@
 package com.example.userService.controller;
 
+import com.example.userService.dto.request.NotMemberRequest;
 import com.example.userService.dto.request.ProfileCreationRequest;
 import com.example.userService.dto.response.ApiResponse;
+import com.example.userService.dto.response.NotMemberResponse;
 import com.example.userService.dto.response.UserProfileResponse;
+import com.example.userService.entity.UserProfile;
 import com.example.userService.service.UserProfileService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/internal")
@@ -29,4 +34,8 @@ public class InternalUserController {
         return userProfileService.checkProfile(userId);
     }
 
+    @PostMapping("/get-not-member")
+    ApiResponse<List<NotMemberResponse>> getNotMember(@RequestBody NotMemberRequest request){
+        return userProfileService.getMemberNotInProject(request.getListIds());
+    }
 }

@@ -31,6 +31,11 @@ public class UserController {
         return userProfileService.getSingleProfile(userId);
     }
 
+    @GetMapping("/get-profile-my-self")
+    ApiResponse<UserProfile> getProfileMySelf() {
+        return userProfileService.getProfileMySelf();
+    }
+
     @PutMapping("/update/{userId}")
     ApiResponse<UserProfile> updateUserProfile(@PathVariable String userId,
                                                @RequestBody UpdateUserProfileRequest request) {
@@ -51,5 +56,10 @@ public class UserController {
                 .build();
     }
 
+    @GetMapping("/searchUser")
+    ApiResponse<List<UserProfile>> searchProfiles(@RequestParam(required = false) String keyword) {
+
+        return userProfileService.searchProfiles(keyword);
+    }
 
 }

@@ -1,13 +1,7 @@
 package com.example.projectService.service;
 
-import com.example.projectService.dto.response.ProjectFullResponse;
-import com.example.projectService.dto.response.ProjectMemberInfoResponse;
-import com.example.projectService.dto.response.ProjectResponse;
-import com.example.projectService.dto.response.TaskResponse;
-import com.example.projectService.dto.resquest.ProjectCreationRequest;
-import com.example.projectService.dto.resquest.ProjectUpdateRequest;
-import com.example.projectService.dto.resquest.TaskCreationRequest;
-import com.example.projectService.dto.resquest.TaskUpdateRequest;
+import com.example.projectService.dto.response.*;
+import com.example.projectService.dto.resquest.*;
 import com.example.projectService.entity.Project;
 import com.example.projectService.entity.ProjectMember;
 import com.example.projectService.entity.ProjectMemberId;
@@ -25,14 +19,17 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -49,6 +46,8 @@ public class ProjectService {
     ProfileClient profileClient;
 
     TaskRepository taskRepository;
+
+    KafkaTemplate<String, Map<String, Object>> kafkaTemplate;
 
     public String getUserIdFromToken() {
         var context = SecurityContextHolder.getContext();
@@ -67,7 +66,7 @@ public class ProjectService {
         }
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
+
     public ProjectResponse createProject(ProjectCreationRequest request) {
         String userId = getUserIdFromToken();
 
@@ -93,7 +92,7 @@ public class ProjectService {
     }
 
 
-    @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
+
     public ProjectResponse updateProject(String projectId, ProjectUpdateRequest request) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new AppException(ErrorCode.PROJECT_NOT_FOUND));
@@ -149,7 +148,7 @@ public class ProjectService {
 
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
+
     public void addMember(String projectId, String userId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new AppException(ErrorCode.PROJECT_NOT_FOUND));
@@ -173,6 +172,31 @@ public class ProjectService {
         projectMemberRepository.save(member);
     }
 
+    @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
+    public void addMembers(String projectId, List<String> userIds) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new AppException(ErrorCode.PROJECT_NOT_FOUND));
+
+        for (String userId : userIds) {
+            if (!profileClient.checkProfile(userId)) {
+                throw new AppException(ErrorCode.USER_NOT_EXISTED);
+            }
+
+            ProjectMemberId pmId = new ProjectMemberId(projectId, userId);
+
+            if (projectMemberRepository.existsById(pmId)) {
+                throw new AppException(ErrorCode.USER_EXISTED);
+            }
+
+            ProjectMember member = ProjectMember.builder()
+                    .id(pmId)
+                    .project(project)
+                    .joinedDate(LocalDate.now())
+                    .build();
+
+            projectMemberRepository.save(member);
+        }
+    }
 
     @Transactional
     @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
@@ -190,7 +214,7 @@ public class ProjectService {
 
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
+
     public void deleteProject(String projectId) {
         if (!projectRepository.existsById(projectId)) {
             throw new AppException(ErrorCode.PROJECT_NOT_FOUND);
@@ -215,6 +239,21 @@ public class ProjectService {
                 .projectName(project.getName())
                 .memberIds(memberIds)
                 .build();
+    }
+
+    public List<String> getListIdMemberFromProject(String projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new AppException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (project.getMembers().isEmpty()) new AppException(ErrorCode.PROJECT_NOW_NOT_HAVE_MEMBER);
+
+        List<String> memberIds = project.getMembers()
+                .stream()
+                .map(m -> m.getId().getUserId())
+                .toList();
+
+        return memberIds;
+
     }
 
     @PreAuthorize("hasAnyRole('MANAGER','LEADER')")
@@ -316,6 +355,64 @@ public class ProjectService {
                 .build();
     }
 
+
+//    public List<ProjectWithTasksResponse> getProjectsWithUserTasks(String userId) {
+//
+//        List<ProjectDTOResponse> projects = findProjectsByMember(userId);
+//
+//        if (projects.isEmpty()) {
+//            return List.of(); // Không có project nào
+//        }
+//        List<String> projectIds = projects.stream()
+//                .map(ProjectDTOResponse::getId)
+//                .toList();
+//
+//        List<TaskDTOResponse> userTasks = findByProjectIdsAndAssigneeTo(projectIds, userId);
+//
+//
+//        return projects.stream()
+//                .map(p -> ProjectWithTasksResponse.builder()
+//                        .id(p.getId())
+//                        .name(p.getName())
+//                        .description(p.getDescription())
+//                        .tasks(userTasks)
+//                        .build()
+//                )
+//                .toList();
+//
+//    }
+
+    public List<ProjectWithTasksResponse> getProjectsWithUserTasks(String userId) {
+        List<Project> projects = projectRepository.findProjectsWithTasksOfUser(userId);
+
+        return projects.stream().map(p ->
+                ProjectWithTasksResponse.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        .description(p.getDescription())
+                        .tasks(
+                                p.getTasks().stream()
+                                        .map(t -> TaskDTOResponseImpl.builder()
+                                                .id(t.getId())
+                                                .title(t.getTitle())
+                                                .description(t.getDescription())
+                                                .endDate(t.getEndDate())
+                                                .status(t.getStatus())
+                                                .build()
+                                        ).toList()
+                        )
+                        .build()
+        ).toList();
+    }
+
+
+    public List<ProjectWithTasksResponse> getProjectsWithMyTasks() {
+        String userId = getUserIdFromToken();
+
+        return getProjectsWithUserTasks(userId);
+
+    }
+
     private void validateProjectAndMember(String projectId, String userId) {
         if (!projectRepository.existsById(projectId)) {
             throw new AppException(ErrorCode.PROJECT_NOT_FOUND);
@@ -325,4 +422,45 @@ public class ProjectService {
             throw new AppException(ErrorCode.USER_NOT_IN_PROJECT);
         }
     }
+
+
+    public List<ProjectDTOResponse> findProjectsByMember(String userId) {
+        return projectRepository.findByMembersContaining(userId);
+    }
+
+
+//    public List<Task> findByProjectIdsAndAssigneeTo(List<String> projectIds, String assignedTo) {
+//        if (projectIds == null || projectIds.isEmpty()) {
+//            return List.of();
+//        }
+//        return taskRepository.findByProjectIdsAndAssigneeTo(projectIds, assignedTo);
+//    }
+
+    public List<TaskDTOResponse> findByProjectIdsAndAssigneeTo(List<String> projectIds, String assignedTo) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return List.of();
+        }
+        return taskRepository.findByProjectIdsAndAssigneeTo(projectIds, assignedTo);
+    }
+
+//    public void sendEventListIdMember(Map<String, Object> event) {
+//
+//        kafkaTemplate.send("listId-member-events", event);
+//    }
+//
+//    public Object getMemberNotInProject(String projectId){
+//        List<String> memberIds = getListIdMemberFromProject(projectId);
+//
+//        Map<String, Object> event = new HashMap<>();
+//
+//        event.put("listIds", memberIds);
+//
+//        sendEventListIdMember(event);
+//    }
+
+    public ApiResponse<List<NotMemberResponse>> getNotMemberInProject(NotMemberRequest request){
+        return profileClient.getNotMember(request);
+
+    }
+
 }

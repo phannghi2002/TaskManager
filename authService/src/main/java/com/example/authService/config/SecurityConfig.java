@@ -1,5 +1,6 @@
 package com.example.authService.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -12,12 +13,13 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
     private static final String[] PUBLIC_ENDPOINTS = {
-           "/login", "/introspect","/refresh-token","/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
+         "/forgot-password/**","/login", "/introspect", "/users/registration","/refresh-token","/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
     };
 
     private final CustomJwtDecoder customJwtDecoder;
@@ -28,6 +30,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+        log.info("hhh");
+
         httpSecurity
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()

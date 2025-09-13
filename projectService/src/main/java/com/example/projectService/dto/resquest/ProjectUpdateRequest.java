@@ -1,6 +1,7 @@
 package com.example.projectService.dto.resquest;
 
 import com.example.projectService.enums.ProjectStatus;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 

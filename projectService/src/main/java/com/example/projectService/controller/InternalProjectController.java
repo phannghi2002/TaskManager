@@ -24,7 +24,7 @@ public class InternalProjectController {
     public ApiResponse<ProjectMemberInfoResponse> memberInProject(
             @PathVariable String projectId) {
         return ApiResponse.<ProjectMemberInfoResponse>builder()
-                .result( projectService.getMemberFromProject(projectId))
+                .result(projectService.getMemberFromProject(projectId))
                 .build();
     }
 
