@@ -1,6 +1,6 @@
 package com.example.authService.service;
 
-import com.example.authService.dto.request.ProfileCreationRequest;
+import com.example.authService.dto.request.ChangePasswordRequest;
 import com.example.authService.dto.request.UserCreationRequest;
 import com.example.authService.dto.response.RoleResponse;
 import com.example.authService.dto.response.UserResponse;
@@ -19,14 +19,11 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,14 +40,28 @@ public class UserService {
 
     KafkaTemplate<String, Map<String, Object>> kafkaTemplate;
 
-    @PreAuthorize("hasRole('MANAGER')")
+//    @PreAuthorize("hasRole('MANAGER')")
     public UserResponse createUser(UserCreationRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) throw new AppException(ErrorCode.USER_EXISTED);
 
-        Set<Role> roles = roleRepository.findByNameIn(request.getRoles());
+//        Set<Role> roles = roleRepository.findByNameIn(request.getRoles());
+//
+//        if (roles.size() != request.getRoles().size())
+//            throw new AppException(ErrorCode.ROLE_NOT_FOUND);
 
-        if (roles.size() != request.getRoles().size())
-            throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+        Set<Role> roles;
+        if (request.getRoles() == null || request.getRoles().isEmpty()) {
+            Role defaultRole = roleRepository.findByName(com.example.authService.enums.Role.EMPLOYEE.name());
+            roles = new HashSet<>();
+            roles.add(defaultRole);
+        } else {
+            roles = roleRepository.findByNameIn(request.getRoles());
+            if (roles.size() != request.getRoles().size()) {
+                throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+            }
+        }
+
+
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -74,11 +85,27 @@ public class UserService {
         //KAFKA
         Map<String, Object> event = new HashMap<>();
         event.put("userId", savedUser.getId());
-        event.put("firstName", request.getFirstName());
-        event.put("lastName", request.getLastName());
+        event.put("email", savedUser.getEmail());
+        event.put("fullName", request.getFullName());
         event.put("dob", request.getDob());
         event.put("city", request.getCity());
 
+
+        Set<String> roleNames = savedUser.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+
+        List<String> roleList = new ArrayList<>(roleNames);
+
+        String roleString = null;
+        if (!roleList.isEmpty()) {
+
+            roleString = roleList.get(0);
+        }
+
+        event.put("role", roleString);
+
+        System.out.println("Sending event: " + event);
         kafkaTemplate.send("create-user-profile-events", event);
 
         Set<RoleResponse> roleResponses = savedUser.getRoles().stream()
@@ -110,6 +137,68 @@ public class UserService {
 
         userRepository.deleteById(id);
 
+    }
+
+    @KafkaListener(groupId = "auth-group", topics = "update-user-events")
+    public void listenUpdateUserProfileEvents(@Payload Map<String, Object> event) {
+        System.out.println("Received event: " + event);
+
+        String userId = (String) event.get("userId");
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        // Check if the event contains an 'email' field and update it
+        if (event.containsKey("email") && event.get("email") instanceof String) {
+            String newEmail = (String) event.get("email");
+            user.setEmail(newEmail);
+            System.out.println("Email updated for user ID: " + userId + " to " + newEmail);
+        }
+
+        // Check if the event contains a 'role' field and update it
+        if (event.containsKey("role") && event.get("role") instanceof String) {
+            String roleName = (String) event.get("role");
+
+            // Find the Role entity from the database
+            Role role = roleRepository.findByName(roleName);
+
+            if (role == null) {
+                throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+            }
+
+            // Create a new Set<Role> with the updated role and set it
+            Set<Role> newRoles = new HashSet<>();
+            newRoles.add(role);
+            user.setRoles(newRoles);
+            System.out.println("Role updated for user ID: " + userId + " to " + roleName);
+        }
+
+        // Save the user with the updated fields
+        userRepository.save(user);
+        System.out.println("User profile updated successfully.");
+    }
+
+    public String updatePassword(ChangePasswordRequest request){
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.WRONG_PASSWORD);
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.NEW_PASSWORD_SAME_AS_OLD);
+        }
+
+        if (!request.getNewPassword().equals(request.getRepeatNewPassword())) {
+            throw new AppException(ErrorCode.PASSWORD_NOT_SAME);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return "Password changed successfully";
     }
 
 }

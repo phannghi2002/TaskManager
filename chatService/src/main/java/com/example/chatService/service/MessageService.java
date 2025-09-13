@@ -3,7 +3,6 @@ package com.example.chatService.service;
 import com.example.chatService.dto.request.MessageCreationRequest;
 import com.example.chatService.dto.request.MessageUpdateRequest;
 import com.example.chatService.dto.response.MessageProjection;
-import com.example.chatService.dto.response.MessageResponse;
 import com.example.chatService.entity.Message;
 import com.example.chatService.exception.AppException;
 import com.example.chatService.exception.ErrorCode;
@@ -19,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,15 +63,19 @@ public class MessageService {
         Message message = Message.builder()
                 .chatRoomId(request.getChatRoomId())
                 .senderId(senderId)
+                .fullName(request.getFullName())
                 .content(request.getContent())
-                .timestamp(Instant.now())
+                .createAt(Instant.now())
                 .build();
 
         chatRoomService.updateLastMessage(request.getChatRoomId(), message.getContent());
 
-        messagingTemplate.convertAndSend("/topic/chat/"+ request.getChatRoomId(), request.getContent());
+        Message savedMessage =  messageRepository.save(message);
 
-        return messageRepository.save(message);
+//        messagingTemplate.convertAndSend("/topic/chat/"+ request.getChatRoomId(), request.getContent());
+        messagingTemplate.convertAndSend("/topic/chat/"+ request.getChatRoomId(), savedMessage);
+
+        return savedMessage ;
     }
 
     public List<MessageProjection> getAllMessageInChatRoom(String chatRoomId) {
@@ -81,10 +85,10 @@ public class MessageService {
         String senderId = getUserIdFromToken();
         if (!checkUserInChatRoom(chatRoomId, senderId)) throw new AppException(ErrorCode.NOT_MEMBER_IN_ROOM_CHAT);
 
-        return messageRepository.findByChatRoomIdOrderByTimestampAsc(chatRoomId);
+        return messageRepository.findByChatRoomIdOrderByCreateAtAsc(chatRoomId);
     }
 
-    public MessageResponse updateMessage(String messageId, MessageUpdateRequest request) {
+    public Message updateMessage(String messageId, MessageUpdateRequest request) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(()-> new AppException(ErrorCode.MESSAGE_NOT_EXISTED));
 
@@ -95,14 +99,22 @@ public class MessageService {
         }
 
         message.setContent(request.getContent());
-        message.setTimestamp(Instant.now());
-        messageRepository.save(message);
+        message.setEdit(true);
+        message.setUpdateAt(Instant.now());
 
-        return MessageResponse.builder()
-                .senderId(message.getSenderId())
-                .content(message.getContent())
-                .timestamp(message.getTimestamp())
-                .build();
+
+        Message savedMessage = messageRepository.save(message);
+        messagingTemplate.convertAndSend("/topic/chat/" + savedMessage.getChatRoomId(), savedMessage);
+
+        return savedMessage;
+
+//        return MessageResponse.builder()
+//                .senderId(savedMessage.getSenderId())
+//                .content(savedMessage.getContent())
+//                .timestamp(savedMessage.getTimestamp())
+//                .build();
+
+
     }
 
     public void deleteMessage(String messageId) {
@@ -115,5 +127,14 @@ public class MessageService {
             throw new AppException(ErrorCode.NOT_EDIT_MESSAGE);
         }
         messageRepository.deleteById(messageId);
+
+        Map<String, String> payload = new HashMap<>();
+        payload.put("type", "DELETE");
+        payload.put("messageId", message.getId());
+
+        messagingTemplate.convertAndSend(
+                "/topic/chat/" + message.getChatRoomId(),
+                payload
+        );
     }
 }

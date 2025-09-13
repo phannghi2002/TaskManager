@@ -18,7 +18,7 @@ import java.util.List;
 @RequestMapping("/message")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class MessageController {
+public class  MessageController {
     MessageService messageService;
 
     @PostMapping("/create")
@@ -36,10 +36,10 @@ public class MessageController {
     }
 
     @PutMapping("/update-message/{messageId}")
-    ApiResponse<MessageResponse> updateMessage(
+    ApiResponse<Message> updateMessage(
             @PathVariable String messageId,
             @RequestBody MessageUpdateRequest request) {
-        return ApiResponse.<MessageResponse>builder()
+        return ApiResponse.<Message>builder()
                 .result(messageService.updateMessage(messageId, request))
                 .build();
     }

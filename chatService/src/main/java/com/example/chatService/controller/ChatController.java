@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ChatController {
@@ -47,6 +46,13 @@ public class ChatController {
             @PathVariable String userId) {
         return ApiResponse.<List<ChatRoom>>builder()
                 .result(chatRoomService.getAllChatRoom(userId))
+                .build();
+    }
+
+    @GetMapping("/all-chat-room")
+    ApiResponse<List<ChatRoom>> getAllChatRoomMySelfV2() {
+        return ApiResponse.<List<ChatRoom>>builder()
+                .result(chatRoomService.getAllChatRoomV2())
                 .build();
     }
 

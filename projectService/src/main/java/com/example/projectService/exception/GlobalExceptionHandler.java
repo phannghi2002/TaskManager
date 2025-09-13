@@ -3,8 +3,10 @@ package com.example.projectService.exception;
 
 
 import com.example.projectService.dto.response.ApiResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -44,5 +46,14 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    ResponseEntity<ApiResponse> handlingValidation(MethodArgumentNotValidException exception){
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .code(500)
+                        .message(exception.getFieldError().getDefaultMessage())
+                        .build()
+                );
+    }
 
 }

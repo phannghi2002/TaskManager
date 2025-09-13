@@ -40,7 +40,7 @@ server:
 
 jwt:
   signerKey: Os1s6shIo1Cit3j+LWqRjlEjCu8wytD3tQFeIR6Opv1Qec+uafoNtUu1zWyvhVue
-  valid-duration: 3600
+  valid-duration: 36000
   refreshable-duration: 72000
 
 app:
@@ -50,3 +50,4 @@ app:
 
   services:
     profile: http://localhost:8082/user
+

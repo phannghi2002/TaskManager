@@ -11,5 +11,5 @@ import lombok.experimental.FieldDefaults;
 public class MessageCreationRequest {
    String chatRoomId;
    String content;
-
+   String fullName;
 }

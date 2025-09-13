@@ -26,7 +26,7 @@ public enum ErrorCode {
     NOT_EDIT_MESSAGE(1018, "Cannot edit or delete someone else's message.", HttpStatus.FORBIDDEN),
     NOT_EDIT_CHAT_ROOM(1019, "Cannot edit chat room because you are not the creator ", HttpStatus.FORBIDDEN),
     NOT_EDIT_MEMBER_IN_PRIVATE(1021, "Cannot edit or delete members because this chat is private", HttpStatus.BAD_REQUEST),
-
+    CHAT_ALREADY_EXISTED(1022, "Chat already existed", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

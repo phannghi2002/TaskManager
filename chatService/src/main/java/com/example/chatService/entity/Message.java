@@ -21,6 +21,11 @@ public class Message {
     String id;
     String chatRoomId;
     String senderId;
+
+    String fullName;
+
     String content;
-    Instant timestamp;
+    Instant updateAt;
+    Instant createAt;
+    Boolean edit;
 }

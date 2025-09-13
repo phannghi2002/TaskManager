@@ -1,6 +1,7 @@
 package com.example.authService.dto.response;
 
 
+import com.example.authService.entity.Role;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -15,4 +16,5 @@ public class AuthenticationResponse {
     String token;
     Date expiryTime;
     String refreshToken;
+    String role;
 }

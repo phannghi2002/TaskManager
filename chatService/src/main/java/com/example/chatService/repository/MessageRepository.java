@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends MongoRepository<Message, String> {
-    List<MessageProjection> findByChatRoomIdOrderByTimestampAsc(String chatRoomId);
+    List<MessageProjection> findByChatRoomIdOrderByCreateAtAsc(String chatRoomId);
 }

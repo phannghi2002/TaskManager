@@ -13,8 +13,12 @@ public enum ErrorCode {
     UNAUTHORIZED(1005, "You do not have permission", HttpStatus.FORBIDDEN),
     WRONG_PASSWORD(1006, " Password not correct", HttpStatus.BAD_REQUEST),
     ROLE_NOT_FOUND(1007, "Role not founded", HttpStatus.NOT_FOUND),
-    REFRESH_TOKEN_INVALID(1007, "Refresh token invalid or expired", HttpStatus.UNAUTHORIZED)
-    ;
+    REFRESH_TOKEN_INVALID(1007, "Refresh token invalid or expired", HttpStatus.UNAUTHORIZED),
+    INVALIDATED_TOKEN(1008, "The token has been logged out. ", HttpStatus.UNAUTHORIZED),
+    PASSWORD_NOT_SAME(1009, "New password and repeat password do not match", HttpStatus.BAD_REQUEST),
+    NEW_PASSWORD_SAME_AS_OLD(1010, "New password and old password do not same", HttpStatus.BAD_REQUEST),
+    CANNOT_SEND_EMAIL(1011, "Cannot send email", HttpStatus.BAD_REQUEST),
+    OTP_INVALID(1012, "OTP code is invalid or expired.", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

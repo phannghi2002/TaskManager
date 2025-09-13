@@ -83,6 +83,12 @@ public class ChatRoomService {
                     ? request.getName()
                     : membersInfo.getResult().getProjectName();
 
+            Optional<ChatRoom> existingChat = chatRoomRepository.findByTypeAndMemberIds(type, memberIds);
+
+            if (existingChat.isPresent()) {
+                throw new AppException(ErrorCode.CHAT_ALREADY_EXISTED);
+            }
+
         } else if (request.getUserIds() != null && request.getUserIds().size() == 1) {
             String otherUserId = request.getUserIds().get(0);
 
@@ -92,7 +98,13 @@ public class ChatRoomService {
             memberIds = List.of(currentUserId, otherUserId);
 
             type = Type.PRIVATE;
-            name = null;
+
+            Optional<ChatRoom> existingChat = chatRoomRepository.findByTypeAndMemberIds(type, memberIds);
+
+            if (existingChat.isPresent()) {
+                throw new AppException(ErrorCode.CHAT_ALREADY_EXISTED);
+            }
+            name = request.getName();
 
         } else if (request.getUserIds() != null && request.getUserIds().size() > 1) {
             memberIds = new ArrayList<>(request.getUserIds());
@@ -117,6 +129,13 @@ public class ChatRoomService {
     }
 
     public List<ChatRoom> getAllChatRoom(String userId) {
+        return chatRoomRepository.findByUserIdsContaining(userId);
+    }
+
+
+
+    public List<ChatRoom> getAllChatRoomV2() {
+        String userId = getUserIdFromToken();
         return chatRoomRepository.findByUserIdsContaining(userId);
     }
 

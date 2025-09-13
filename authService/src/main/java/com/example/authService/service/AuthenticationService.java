@@ -1,14 +1,15 @@
 package com.example.authService.service;
 
-import com.example.authService.dto.request.AuthenticationRequest;
-import com.example.authService.dto.request.IntrospectRequest;
-import com.example.authService.dto.request.RefreshTokenRequest;
+import com.example.authService.dto.request.*;
+import com.example.authService.dto.response.ApiResponse;
 import com.example.authService.dto.response.AuthenticationResponse;
 import com.example.authService.dto.response.IntrospectResponse;
+import com.example.authService.entity.InvalidatedToken;
 import com.example.authService.entity.RefreshToken;
 import com.example.authService.entity.User;
 import com.example.authService.exception.AppException;
 import com.example.authService.exception.ErrorCode;
+import com.example.authService.repository.InvalidatedTokenRepository;
 import com.example.authService.repository.UserRepository;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -25,9 +26,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.text.ParseException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -39,21 +42,29 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationService {
+    EmailService emailService;
+
     UserRepository userRepository;
+
+    InvalidatedTokenRepository invalidatedTokenRepository;
 
     RedisTemplate<String, RefreshToken> redisTemplate;
 
+    RedisTemplate<String, String> customStringRedisTemplate;
+
+    PasswordEncoder passwordEncoder;
+
     @NonFinal
     @Value("${jwt.signerKey}")
-    protected String SIGNER_KEY;
+    String SIGNER_KEY;
 
     @NonFinal
     @Value("${jwt.valid-duration}")
-    protected long VALID_DURATION;
+    long VALID_DURATION;
 
     @NonFinal
     @Value("${jwt.refreshable-duration}")
-    protected long REFRESHABLE_DURATION;
+    long REFRESHABLE_DURATION;
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) throws ParseException {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
@@ -83,10 +94,17 @@ public class AuthenticationService {
 
         redisTemplate.expire("refreshToken:" + refreshToken.getToken(), REFRESHABLE_DURATION, TimeUnit.SECONDS);
 
+
+        String roleName = user.getRoles().stream()
+                .findFirst()
+                .map(role -> role.getName())
+                .orElse(null);
+
         return AuthenticationResponse.builder()
                 .token(token)
                 .expiryTime(expiryTime)
                 .refreshToken(refreshToken.getToken())
+                .role(roleName)
                 .build();
 
     }
@@ -107,6 +125,7 @@ public class AuthenticationService {
                 .expirationTime(new Date(
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
                 ))
+                .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
                 .claim("userId", user.getId())
                 .build();
@@ -213,7 +232,101 @@ public class AuthenticationService {
 
         if (!(verified && expiryTime.after(new Date()))) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
+        if (invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID()))
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+
         return signedJWT;
     }
 
+    @Transactional
+    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+
+        log.info("djad");
+        SignedJWT signedJWT = verifyToken(request.getToken());
+
+
+        String jwtId = signedJWT.getJWTClaimsSet().getJWTID();
+        Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+
+
+        InvalidatedToken invalidatedToken =
+                InvalidatedToken.builder().id(jwtId).expiryTime(expiryTime).build();
+
+        invalidatedTokenRepository.save(invalidatedToken);
+
+
+        String refreshTokenKey = "refreshToken:" + request.getRefreshToken();
+
+
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(refreshTokenKey))) {
+
+            throw new AppException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        redisTemplate.delete(refreshTokenKey);
+    }
+
+    public void forgotPassword(String userEmail) {
+        String token = generateRandomToken();
+
+
+        customStringRedisTemplate.opsForValue().set("password_reset:" + userEmail, token, Duration.ofMinutes(10));
+
+
+        SendEmailRequest request = new SendEmailRequest();
+        Recipient recipient = new Recipient();
+        recipient.setEmail(userEmail);
+
+        request.setTo(recipient);
+        request.setSubject("Yêu cầu khôi phục mật khẩu của bạn");
+        request.setHtmlContent("Mã khôi phục mật khẩu của bạn là: <b>" + token + "</b>. Mã này sẽ hết hạn sau 10 phút.");
+
+        // Gọi hàm sendEmail để gửi đi
+        emailService.sendEmail(request);
+    }
+
+    private String generateRandomToken() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    public boolean verifyOtp(String email, String otp) {
+        String redisKey = "password_reset:" + email;
+
+        String storedOtp = customStringRedisTemplate.opsForValue().get(redisKey);
+
+        if (storedOtp == null || !storedOtp.equals(otp)) {
+            return false;
+        }
+
+        customStringRedisTemplate.delete(redisKey);
+
+        return true;
+    }
+
+    public boolean changePassword(String userEmail, String newPassword) {
+        Optional<User> userOptional = userRepository.findByEmail(userEmail);
+
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+            return true;
+        }
+
+        return false;
+    }
+
+    public ApiResponse<String> resetPassword(ResetPasswordRequest request){
+        if (!verifyOtp(request.getEmail(), request.getOtp())) {
+           throw new AppException(ErrorCode.OTP_INVALID);
+        }
+
+        if (!changePassword(request.getEmail(), request.getNewPassword())) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+
+        return ApiResponse.<String>builder()
+                .message("Password change successfully")
+                .build();
+    }
 }

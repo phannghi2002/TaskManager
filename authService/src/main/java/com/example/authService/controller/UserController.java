@@ -1,14 +1,11 @@
 package com.example.authService.controller;
 
-import com.example.authService.dto.request.AuthenticationRequest;
-
+import com.example.authService.dto.request.ChangePasswordRequest;
 import com.example.authService.dto.request.UserCreationRequest;
 import com.example.authService.dto.response.ApiResponse;
-import com.example.authService.dto.response.AuthenticationResponse;
-
 import com.example.authService.dto.response.UserResponse;
-import com.example.authService.service.AuthenticationService;
 import com.example.authService.service.UserService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,9 +23,16 @@ public class UserController {
     UserService userService;
 
     @PostMapping("/registration")
-    ApiResponse<UserResponse> createUser(@RequestBody UserCreationRequest request) {
+    ApiResponse<UserResponse> createUser(@Valid @RequestBody UserCreationRequest request) {
         return ApiResponse.<UserResponse>builder()
                 .result(userService.createUser(request))
+                .build();
+    }
+
+    @PostMapping("/change-password")
+    ApiResponse<?> updatePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        return ApiResponse.<UserResponse>builder()
+                .message(userService.updatePassword(request))
                 .build();
     }
 
